@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pyo
+static/graphs/
+.env
+venv/

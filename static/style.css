@@ -1,0 +1,44 @@
+/* ── Direction Banner ─────────────────────────────────── */
+.direction-banner {
+    border-radius: 14px;
+    padding: 20px 28px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.direction-banner.up {
+    background: #001a0d;
+    border: 1px solid #00ff88;
+}
+
+.direction-banner.down {
+    background: #1a0d0d;
+    border: 1px solid #ff4444;
+}
+
+.direction-text {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.direction-change {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #a0b4cc;
+}
+
+.direction-sub {
+    font-size: 0.8rem;
+    color: #3a4a5a;
+    margin-left: auto;
+}
+
+/* ── Result Date ──────────────────────────────────────── */
+.result-date {
+    font-size: 0.78rem;
+    color: #3a4a5a;
+    margin-bottom: 8px;
+}

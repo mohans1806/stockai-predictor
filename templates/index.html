@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockAI — Price Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0e1a;
+            color: #e0e6f0;
+            min-height: 100vh;
+        }
+
+        /* Navbar */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 40px;
+            background: #0d1120;
+            border-bottom: 1px solid #1e2a3a;
+        }
+        .logo { font-size: 1.4rem; font-weight: 700; color: #00d4ff; margin-right: 12px; }
+        .nav-tag {
+            font-size: 0.75rem; color: #556;
+            background: #1a2235; padding: 4px 10px; border-radius: 20px;
+        }
+        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .live-dot {
+            width: 8px; height: 8px; background: #00ff88;
+            border-radius: 50%; animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .live-text { font-size: 0.75rem; color: #00ff88; font-weight: 600; letter-spacing: 1px; }
+
+        /* Ticker */
+        .ticker-bar {
+            background: #0d1120;
+            border-bottom: 1px solid #1e2a3a;
+            overflow: hidden; padding: 8px 0;
+        }
+        .ticker-track {
+            display: flex; gap: 60px;
+            animation: ticker 30s linear infinite;
+            white-space: nowrap;
+        }
+        .ticker-track span { font-size: 0.8rem; color: #7a9cc0; font-weight: 500; }
+        @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+        /* Main */
+        .main { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+
+        /* Hero */
+        .hero { text-align: center; margin-bottom: 40px; }
+        .hero h1 { font-size: 2.2rem; font-weight: 700; color: #fff; margin-bottom: 12px; }
+        .hero-sub { font-size: 1rem; color: #6a7f99; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+
+        /* Card */
+        .card {
+            background: #0d1120;
+            border: 1px solid #1e2a3a;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 24px;
+        }
+        .card-title { font-size: 1.1rem; font-weight: 600; color: #a0b4cc; margin-bottom: 20px; }
+
+        /* Form */
+        .form-grid { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px; }
+        .form-group label {
+            font-size: 0.8rem; color: #556a80; font-weight: 600;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        input[type="text"], input[type="date"] {
+            padding: 12px 16px;
+            background: #131929;
+            border: 1px solid #1e2a3a;
+            border-radius: 10px;
+            color: #e0e6f0;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus { border-color: #00d4ff; }
+        input::placeholder { color: #3a4a5a; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+
+        .predict-btn {
+            padding: 13px 28px;
+            background: linear-gradient(135deg, #0077ff, #00d4ff);
+            color: white; border: none; border-radius: 10px;
+            font-size: 0.95rem; font-weight: 600; cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+            font-family: 'Inter', sans-serif; white-space: nowrap;
+        }
+        .predict-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* Loader */
+        .loader-wrap {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 16px;
+            padding: 30px; color: #6a7f99;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid #1e2a3a;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error */
+        .alert-error {
+            background: #1a0d0d; border: 1px solid #ff4444;
+            border-radius: 12px; padding: 16px 20px;
+            color: #ff6b6b; margin-bottom: 24px;
+        }
+
+        /* Results */
+        .results-section { margin-top: 10px; }
+        .section-title { font-size: 1.1rem; font-weight: 600; color: #a0b4cc; margin-bottom: 20px; }
+        .accent { color: #00d4ff; }
+
+        /* Direction Banner */
+        .direction-banner {
+            border-radius: 14px; padding: 20px 28px;
+            margin-bottom: 20px; display: flex;
+            align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .direction-banner.up   { background: #001a0d; border: 1px solid #00ff88; }
+        .direction-banner.down { background: #1a0d0d; border: 1px solid #ff4444; }
+        .direction-icon  { font-size: 2rem; }
+        .direction-text  { font-size: 1.4rem; font-weight: 700; }
+        .direction-banner.up   .direction-text { color: #00ff88; }
+        .direction-banner.down .direction-text { color: #ff4444; }
+        .direction-change { font-size: 1.1rem; font-weight: 600; color: #a0b4cc; }
+        .direction-sub    { font-size: 0.8rem; color: #3a4a5a; margin-left: auto; }
+
+        /* Result Cards */
+        .result-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .result-card {
+            background: #0d1120; border-radius: 16px;
+            padding: 28px 24px; text-align: center;
+            border: 1px solid #1e2a3a;
+            transition: transform 0.2s;
+        }
+        .result-card:hover { transform: translateY(-3px); }
+        .actual-card    { border-top: 3px solid #00ff88; }
+        .predicted-card { border-top: 3px solid #00d4ff; }
+        .result-icon  { font-size: 1.8rem; margin-bottom: 12px; }
+        .result-label { font-size: 0.8rem; color: #556a80; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .result-date  { font-size: 0.78rem; color: #3a4a5a; margin-bottom: 10px; }
+        .result-value { font-size: 2.4rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+        .result-sub   { font-size: 0.78rem; color: #3a4a5a; }
+
+        /* Graph Card */
+        .graph-card {
+            background: #0d1120;
+            border: 1px solid #1e2a3a;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .graph-title {
+            font-size: 1rem; font-weight: 600;
+            color: #a0b4cc; margin-bottom: 16px;
+        }
+        .graph-img {
+            width: 100%; border-radius: 12px;
+            border: 1px solid #1e2a3a;
+        }
+
+        /* Info Bar */
+        .info-bar {
+            background: #0d1120; border: 1px solid #1e2a3a;
+            border-radius: 12px; padding: 16px 24px;
+            display: flex; flex-wrap: wrap;
+            gap: 24px; justify-content: space-between;
+        }
+        .info-item  { display: flex; flex-direction: column; gap: 4px; }
+        .info-label { font-size: 0.7rem; color: #3a4a5a; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-value { font-size: 0.9rem; color: #a0b4cc; font-weight: 600; }
+
+        /* Footer */
+        .footer {
+            text-align: center; padding: 20px;
+            color: #2a3a4a; font-size: 0.8rem;
+            border-top: 1px solid #1e2a3a; margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <span class="logo">📈 StockAI</span>
+            <span class="nav-tag">Powered by LSTM Neural Network</span>
+        </div>
+        <div class="nav-right">
+            <span class="live-dot"></span>
+            <span class="live-text">LIVE DATA</span>
+        </div>
+    </nav>
+
+    <!-- Ticker -->
+    <div class="ticker-bar">
+        <div class="ticker-track">
+            <span>AAPL $189.42 ▲ 1.2%</span>
+            <span>TSLA $242.10 ▼ 0.8%</span>
+            <span>GOOGL $174.55 ▲ 0.5%</span>
+            <span>MSFT $415.20 ▲ 2.1%</span>
+            <span>AMZN $198.63 ▼ 0.3%</span>
+            <span>NVDA $875.40 ▲ 3.4%</span>
+            <span>META $523.10 ▲ 1.8%</span>
+            <span>NFLX $628.90 ▼ 0.6%</span>
+            <span>AAPL $189.42 ▲ 1.2%</span>
+            <span>TSLA $242.10 ▼ 0.8%</span>
+            <span>GOOGL $174.55 ▲ 0.5%</span>
+            <span>MSFT $415.20 ▲ 2.1%</span>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <main class="main">
+
+        <!-- Hero -->
+        <div class="hero">
+            <h1>AI-Powered Stock Price Prediction</h1>
+            <p class="hero-sub">Enter a stock symbol and today's date — our LSTM model predicts
+                <strong>tomorrow's closing price</strong> using 60 days of historical data</p>
+        </div>
+
+        <!-- Input Card -->
+        <div class="card input-card">
+            <h2 class="card-title">🔍 Enter Prediction Details</h2>
+            <form method="POST" onsubmit="showLoader()">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Stock Symbol</label>
+                        <input type="text" name="symbol"
+                               placeholder="e.g. AAPL, TSLA, GOOGL" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Today's Date</label>
+                        <input type="date" name="date"
+                               max="{{ today }}" required>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="predict-btn">
+                            🔮 Predict Tomorrow
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Loader -->
+        <div class="loader-wrap" id="loader" style="display:none;">
+            <div class="spinner"></div>
+            <p>Analyzing market data...</p>
+        </div>
+
+        <!-- Error -->
+        {% if error %}
+        <div class="alert-error">⚠️ {{ error }}</div>
+        {% endif %}
+
+        <!-- Results -->
+        {% if predicted_price %}
+        <div class="results-section">
+
+            <h2 class="section-title">
+                📊 Prediction Results —
+                <span class="accent">{{ symbol }}</span>
+            </h2>
+
+            <!-- Direction Banner -->
+            <div class="direction-banner {{ 'up' if direction == 'UP' else 'down' }}">
+                <span class="direction-icon">{{ '📈' if direction == 'UP' else '📉' }}</span>
+                <span class="direction-text">{{ direction }} Tomorrow</span>
+                <span class="direction-change">
+                    {{ '+' if change > 0 else '' }}${{ change }}
+                    ({{ '+' if change_pct > 0 else '' }}{{ change_pct }}%)
+                </span>
+                <span class="direction-sub">Expected move from today → tomorrow</span>
+            </div>
+
+            <!-- Result Cards -->
+            <div class="result-cards">
+
+                <div class="result-card actual-card">
+                    <div class="result-icon">📅</div>
+                    <p class="result-label">Today's Closing Price</p>
+                    <p class="result-date">{{ input_date }}</p>
+                    <p class="result-value">${{ actual_price }}</p>
+                    <p class="result-sub">Real market closing price</p>
+                </div>
+
+                <div class="result-card predicted-card">
+                    <div class="result-icon">🔮</div>
+                    <p class="result-label">Tomorrow's Predicted Price</p>
+                    <p class="result-date">{{ tomorrow_date }}</p>
+                    <p class="result-value accent">${{ predicted_price }}</p>
+                    <p class="result-sub">AI prediction based on 60 days</p>
+                </div>
+
+            </div>
+
+            <!-- 60 Day Graph -->
+            {% if graph_path %}
+            <div class="graph-card">
+                <h3 class="graph-title">
+                    📊 {{ symbol }} — Last 60 Days Price Chart
+                </h3>
+                <img src="{{ url_for('static', filename=graph_path) }}?t={{ range(1, 99999) | random }}"
+                     alt="60 Day Chart" class="graph-img">
+            </div>
+            {% endif %}
+
+            <!-- Info Bar -->
+            <div class="info-bar">
+                <div class="info-item">
+                    <span class="info-label">Model</span>
+                    <span class="info-value">LSTM Neural Network</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Training Data</span>
+                    <span class="info-value">2010 — 2025</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">MSE</span>
+                    <span class="info-value">35.30</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">MAE</span>
+                    <span class="info-value">$4.69</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Sequence Length</span>
+                    <span class="info-value">60 Days</span>
+                </div>
+            </div>
+
+        </div>
+        {% endif %}
+
+    </main>
+
+    <footer class="footer">
+        <p>⚠️ StockAI is for educational purposes only. Not financial advice.</p>
+    </footer>
+
+    <script>
+        function showLoader() {
+            document.getElementById('loader').style.display = 'flex';
+        }
+    </script>
+
+</body>
+</html>
