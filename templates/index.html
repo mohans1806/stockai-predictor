@@ -4,43 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockAI — Price Predictor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* ── Animated Background ─────────────────────── */
         body {
             font-family: 'Inter', sans-serif;
-            background: #0a0e1a;
-            color: #e0e6f0;
             min-height: 100vh;
+            background: linear-gradient(-45deg, #0d0221, #1a0533, #0a1628, #0d2137, #1a0533, #0d0221);
+            background-size: 400% 400%;
+            animation: gradientBG 12s ease infinite;
+            color: #e0e6f0;
+            overflow-x: hidden;
         }
 
-        /* Navbar */
+        @keyframes gradientBG {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ── Floating Orbs ───────────────────────────── */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .orb1 { width: 400px; height: 400px; background: #7c3aed; top: -100px; left: -100px; animation-delay: 0s; }
+        .orb2 { width: 300px; height: 300px; background: #06b6d4; top: 50%; right: -100px; animation-delay: 2s; }
+        .orb3 { width: 350px; height: 350px; background: #f59e0b; bottom: -100px; left: 30%; animation-delay: 4s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50%       { transform: translateY(-30px) scale(1.05); }
+        }
+
+        /* ── Navbar ──────────────────────────────────── */
         .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 14px 40px;
-            background: #0d1120;
-            border-bottom: 1px solid #1e2a3a;
+            padding: 16px 40px;
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        .logo { font-size: 1.4rem; font-weight: 700; color: #00d4ff; margin-right: 12px; }
+        .nav-left { display: flex; align-items: center; gap: 14px; }
+        .logo {
+            font-size: 1.5rem; font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #06b6d4, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
         .nav-tag {
-            font-size: 0.75rem; color: #556;
-            background: #1a2235; padding: 4px 10px; border-radius: 20px;
+            font-size: 0.72rem; color: #94a3b8;
+            background: rgba(255,255,255,0.06);
+            padding: 4px 12px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .nav-right { display: flex; align-items: center; gap: 8px; }
+        .nav-right { display: flex; align-items: center; gap: 10px; }
         .live-dot {
-            width: 8px; height: 8px; background: #00ff88;
-            border-radius: 50%; animation: pulse 1.5s infinite;
+            width: 8px; height: 8px;
+            background: #00ff88; border-radius: 50%;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 8px #00ff88;
         }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
         .live-text { font-size: 0.75rem; color: #00ff88; font-weight: 600; letter-spacing: 1px; }
 
-        /* Ticker */
+        /* ── Ticker ──────────────────────────────────── */
         .ticker-bar {
-            background: #0d1120;
-            border-bottom: 1px solid #1e2a3a;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             overflow: hidden; padding: 8px 0;
         }
         .ticker-track {
@@ -48,159 +92,315 @@
             animation: ticker 30s linear infinite;
             white-space: nowrap;
         }
-        .ticker-track span { font-size: 0.8rem; color: #7a9cc0; font-weight: 500; }
+        .ticker-track span { font-size: 0.8rem; color: #94a3b8; font-weight: 500; }
+        .ticker-track span.up   { color: #00ff88; }
+        .ticker-track span.down { color: #ff6b6b; }
         @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
 
-        /* Main */
-        .main { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        /* ── Layout ──────────────────────────────────── */
+        .layout {
+            display: flex;
+            gap: 24px;
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Sidebar ─────────────────────────────────── */
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .sidebar-card {
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 20px;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+
+        /* Popular Stocks */
+        .stock-list { display: flex; flex-direction: column; gap: 10px; }
+        .stock-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .stock-item:hover {
+            background: rgba(167,139,250,0.15);
+            border-color: rgba(167,139,250,0.3);
+            transform: translateX(4px);
+        }
+        .stock-symbol { font-size: 0.9rem; font-weight: 700; color: #e2e8f0; }
+        .stock-name   { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+        .stock-price  { font-size: 0.85rem; font-weight: 600; }
+        .stock-price.up   { color: #00ff88; }
+        .stock-price.down { color: #ff6b6b; }
+
+        /* How It Works */
+        .steps { display: flex; flex-direction: column; gap: 12px; }
+        .step  { display: flex; align-items: flex-start; gap: 12px; }
+        .step-num {
+            width: 26px; height: 26px;
+            background: linear-gradient(135deg, #7c3aed, #06b6d4);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .step-text { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; padding-top: 3px; }
+
+        /* Model Stats */
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-box {
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .stat-val { font-size: 1rem; font-weight: 700; color: #a78bfa; }
+        .stat-lbl { font-size: 0.68rem; color: #64748b; margin-top: 3px; }
+
+        /* ── Main Content ────────────────────────────── */
+        .main-content { flex: 1; min-width: 0; }
 
         /* Hero */
-        .hero { text-align: center; margin-bottom: 40px; }
-        .hero h1 { font-size: 2.2rem; font-weight: 700; color: #fff; margin-bottom: 12px; }
-        .hero-sub { font-size: 1rem; color: #6a7f99; max-width: 600px; margin: 0 auto; line-height: 1.6; }
-
-        /* Card */
-        .card {
-            background: #0d1120;
-            border: 1px solid #1e2a3a;
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 24px;
+        .hero { text-align: center; margin-bottom: 30px; }
+        .hero h1 {
+            font-size: 2.4rem; font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #06b6d4, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            line-height: 1.2;
         }
-        .card-title { font-size: 1.1rem; font-weight: 600; color: #a0b4cc; margin-bottom: 20px; }
+        .hero-sub { font-size: 0.95rem; color: #64748b; line-height: 1.6; }
+
+        /* Glass Card */
+        .glass-card {
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 28px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1rem; font-weight: 700;
+            color: #e2e8f0; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 8px;
+        }
 
         /* Form */
-        .form-grid { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
-        .form-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px; }
+        .form-grid { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 180px; }
         .form-group label {
-            font-size: 0.8rem; color: #556a80; font-weight: 600;
-            letter-spacing: 0.5px; text-transform: uppercase;
+            font-size: 0.75rem; font-weight: 700;
+            color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
         }
         input[type="text"], input[type="date"] {
-            padding: 12px 16px;
-            background: #131929;
-            border: 1px solid #1e2a3a;
-            border-radius: 10px;
-            color: #e0e6f0;
+            padding: 13px 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            color: #e2e8f0;
             font-size: 0.95rem;
             font-family: 'Inter', sans-serif;
             outline: none;
-            transition: border-color 0.2s;
+            transition: all 0.3s;
         }
-        input:focus { border-color: #00d4ff; }
-        input::placeholder { color: #3a4a5a; }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+        input:focus {
+            border-color: #a78bfa;
+            background: rgba(167,139,250,0.08);
+            box-shadow: 0 0 0 3px rgba(167,139,250,0.15);
+        }
+        input::placeholder { color: #334155; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.4); cursor: pointer; }
 
         .predict-btn {
             padding: 13px 28px;
-            background: linear-gradient(135deg, #0077ff, #00d4ff);
-            color: white; border: none; border-radius: 10px;
-            font-size: 0.95rem; font-weight: 600; cursor: pointer;
-            transition: opacity 0.2s, transform 0.2s;
-            font-family: 'Inter', sans-serif; white-space: nowrap;
+            background: linear-gradient(135deg, #7c3aed, #06b6d4);
+            color: white; border: none; border-radius: 14px;
+            font-size: 0.95rem; font-weight: 700; cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+            box-shadow: 0 4px 20px rgba(124,58,237,0.4);
         }
-        .predict-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(124,58,237,0.6);
+        }
+        .predict-btn:active { transform: translateY(0); }
 
         /* Loader */
         .loader-wrap {
             display: flex; flex-direction: column;
             align-items: center; gap: 16px;
-            padding: 30px; color: #6a7f99;
+            padding: 40px; color: #64748b;
         }
         .spinner {
-            width: 40px; height: 40px;
-            border: 3px solid #1e2a3a;
-            border-top-color: #00d4ff;
+            width: 44px; height: 44px;
+            border: 3px solid rgba(255,255,255,0.08);
+            border-top-color: #a78bfa;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { font-size: 0.9rem; color: #64748b; }
 
         /* Error */
         .alert-error {
-            background: #1a0d0d; border: 1px solid #ff4444;
-            border-radius: 12px; padding: 16px 20px;
-            color: #ff6b6b; margin-bottom: 24px;
+            background: rgba(255,68,68,0.08);
+            border: 1px solid rgba(255,68,68,0.3);
+            border-radius: 16px; padding: 16px 20px;
+            color: #ff6b6b; margin-bottom: 20px;
+            backdrop-filter: blur(10px);
         }
-
-        /* Results */
-        .results-section { margin-top: 10px; }
-        .section-title { font-size: 1.1rem; font-weight: 600; color: #a0b4cc; margin-bottom: 20px; }
-        .accent { color: #00d4ff; }
 
         /* Direction Banner */
         .direction-banner {
-            border-radius: 14px; padding: 20px 28px;
+            border-radius: 20px; padding: 20px 24px;
             margin-bottom: 20px; display: flex;
-            align-items: center; gap: 20px; flex-wrap: wrap;
+            align-items: center; gap: 16px;
+            flex-wrap: wrap; position: relative;
+            overflow: hidden;
         }
-        .direction-banner.up   { background: #001a0d; border: 1px solid #00ff88; }
-        .direction-banner.down { background: #1a0d0d; border: 1px solid #ff4444; }
-        .direction-icon  { font-size: 2rem; }
-        .direction-text  { font-size: 1.4rem; font-weight: 700; }
+        .direction-banner::before {
+            content: '';
+            position: absolute; inset: 0;
+            opacity: 0.05;
+        }
+        .direction-banner.up {
+            background: rgba(0,255,136,0.06);
+            border: 1px solid rgba(0,255,136,0.25);
+        }
+        .direction-banner.down {
+            background: rgba(255,107,107,0.06);
+            border: 1px solid rgba(255,107,107,0.25);
+        }
+        .direction-icon  { font-size: 2.2rem; }
+        .direction-text  { font-size: 1.5rem; font-weight: 800; }
         .direction-banner.up   .direction-text { color: #00ff88; }
-        .direction-banner.down .direction-text { color: #ff4444; }
-        .direction-change { font-size: 1.1rem; font-weight: 600; color: #a0b4cc; }
-        .direction-sub    { font-size: 0.8rem; color: #3a4a5a; margin-left: auto; }
+        .direction-banner.down .direction-text { color: #ff6b6b; }
+        .direction-change { font-size: 1rem; font-weight: 600; color: #94a3b8; }
+        .direction-sub    { font-size: 0.8rem; color: #475569; margin-left: auto; }
 
         /* Result Cards */
         .result-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px; margin-bottom: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px; margin-bottom: 20px;
         }
         .result-card {
-            background: #0d1120; border-radius: 16px;
-            padding: 28px 24px; text-align: center;
-            border: 1px solid #1e2a3a;
-            transition: transform 0.2s;
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(20px);
+            border-radius: 20px; padding: 24px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.3s;
+            position: relative; overflow: hidden;
         }
-        .result-card:hover { transform: translateY(-3px); }
-        .actual-card    { border-top: 3px solid #00ff88; }
-        .predicted-card { border-top: 3px solid #00d4ff; }
-        .result-icon  { font-size: 1.8rem; margin-bottom: 12px; }
-        .result-label { font-size: 0.8rem; color: #556a80; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-        .result-date  { font-size: 0.78rem; color: #3a4a5a; margin-bottom: 10px; }
-        .result-value { font-size: 2.4rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
-        .result-sub   { font-size: 0.78rem; color: #3a4a5a; }
+        .result-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+        .result-card:hover { transform: translateY(-4px); }
+        .actual-card::before    { background: linear-gradient(90deg, #00ff88, #06b6d4); }
+        .predicted-card::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+        .result-icon  { font-size: 2rem; margin-bottom: 10px; }
+        .result-label {
+            font-size: 0.72rem; color: #475569;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+        }
+        .result-date  { font-size: 0.78rem; color: #334155; margin-bottom: 10px; }
+        .result-value { font-size: 2.4rem; font-weight: 800; color: #f1f5f9; margin-bottom: 6px; }
+        .result-sub   { font-size: 0.75rem; color: #334155; }
 
-        /* Graph Card */
+        /* Graph */
         .graph-card {
-            background: #0d1120;
-            border: 1px solid #1e2a3a;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 20px; padding: 22px;
+            margin-bottom: 20px;
         }
         .graph-title {
-            font-size: 1rem; font-weight: 600;
-            color: #a0b4cc; margin-bottom: 16px;
+            font-size: 0.95rem; font-weight: 700;
+            color: #94a3b8; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
         }
-        .graph-img {
-            width: 100%; border-radius: 12px;
-            border: 1px solid #1e2a3a;
-        }
+        .graph-img { width: 100%; border-radius: 14px; }
 
         /* Info Bar */
         .info-bar {
-            background: #0d1120; border: 1px solid #1e2a3a;
-            border-radius: 12px; padding: 16px 24px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px; padding: 16px 24px;
             display: flex; flex-wrap: wrap;
-            gap: 24px; justify-content: space-between;
+            gap: 20px; justify-content: space-between;
         }
         .info-item  { display: flex; flex-direction: column; gap: 4px; }
-        .info-label { font-size: 0.7rem; color: #3a4a5a; text-transform: uppercase; letter-spacing: 0.5px; }
-        .info-value { font-size: 0.9rem; color: #a0b4cc; font-weight: 600; }
+        .info-label { font-size: 0.68rem; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-value { font-size: 0.88rem; color: #94a3b8; font-weight: 600; }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.1rem; font-weight: 700;
+            color: #e2e8f0; margin-bottom: 18px;
+        }
+        .accent {
+            background: linear-gradient(135deg, #a78bfa, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
 
         /* Footer */
         .footer {
             text-align: center; padding: 20px;
-            color: #2a3a4a; font-size: 0.8rem;
-            border-top: 1px solid #1e2a3a; margin-top: 40px;
+            color: #1e293b; font-size: 0.8rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            position: relative; z-index: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .layout { flex-direction: column; }
+            .sidebar { width: 100%; }
         }
     </style>
 </head>
 <body>
+
+    <!-- Floating Orbs -->
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
 
     <!-- Navbar -->
     <nav class="navbar">
@@ -217,146 +417,257 @@
     <!-- Ticker -->
     <div class="ticker-bar">
         <div class="ticker-track">
-            <span>AAPL $189.42 ▲ 1.2%</span>
-            <span>TSLA $242.10 ▼ 0.8%</span>
-            <span>GOOGL $174.55 ▲ 0.5%</span>
-            <span>MSFT $415.20 ▲ 2.1%</span>
-            <span>AMZN $198.63 ▼ 0.3%</span>
-            <span>NVDA $875.40 ▲ 3.4%</span>
-            <span>META $523.10 ▲ 1.8%</span>
-            <span>NFLX $628.90 ▼ 0.6%</span>
-            <span>AAPL $189.42 ▲ 1.2%</span>
-            <span>TSLA $242.10 ▼ 0.8%</span>
-            <span>GOOGL $174.55 ▲ 0.5%</span>
-            <span>MSFT $415.20 ▲ 2.1%</span>
+            <span class="up">AAPL $189.42 ▲ 1.2%</span>
+            <span class="down">TSLA $242.10 ▼ 0.8%</span>
+            <span class="up">GOOGL $174.55 ▲ 0.5%</span>
+            <span class="up">MSFT $415.20 ▲ 2.1%</span>
+            <span class="down">AMZN $198.63 ▼ 0.3%</span>
+            <span class="up">NVDA $875.40 ▲ 3.4%</span>
+            <span class="up">META $523.10 ▲ 1.8%</span>
+            <span class="down">NFLX $628.90 ▼ 0.6%</span>
+            <span class="up">AAPL $189.42 ▲ 1.2%</span>
+            <span class="down">TSLA $242.10 ▼ 0.8%</span>
+            <span class="up">GOOGL $174.55 ▲ 0.5%</span>
+            <span class="up">MSFT $415.20 ▲ 2.1%</span>
         </div>
     </div>
 
-    <!-- Main -->
-    <main class="main">
+    <!-- Layout -->
+    <div class="layout">
 
-        <!-- Hero -->
-        <div class="hero">
-            <h1>AI-Powered Stock Price Prediction</h1>
-            <p class="hero-sub">Enter a stock symbol and today's date — our LSTM model predicts
-                <strong>tomorrow's closing price</strong> using 60 days of historical data</p>
-        </div>
+        <!-- Sidebar -->
+        <aside class="sidebar">
 
-        <!-- Input Card -->
-        <div class="card input-card">
-            <h2 class="card-title">🔍 Enter Prediction Details</h2>
-            <form method="POST" onsubmit="showLoader()">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Stock Symbol</label>
-                        <input type="text" name="symbol"
-                               placeholder="e.g. AAPL, TSLA, GOOGL" required>
+            <!-- Popular Stocks -->
+            <div class="sidebar-card">
+                <p class="sidebar-title">🔥 Popular Stocks</p>
+                <div class="stock-list">
+                    <div class="stock-item" onclick="fillSymbol('AAPL')">
+                        <div>
+                            <div class="stock-symbol">AAPL</div>
+                            <div class="stock-name">Apple Inc.</div>
+                        </div>
+                        <div class="stock-price up">▲ 1.2%</div>
                     </div>
-                    <div class="form-group">
-                        <label>Today's Date</label>
-                        <input type="date" name="date"
-                               max="{{ today }}" required>
+                    <div class="stock-item" onclick="fillSymbol('TSLA')">
+                        <div>
+                            <div class="stock-symbol">TSLA</div>
+                            <div class="stock-name">Tesla Inc.</div>
+                        </div>
+                        <div class="stock-price down">▼ 0.8%</div>
                     </div>
-                    <div class="form-group">
-                        <button type="submit" class="predict-btn">
-                            🔮 Predict Tomorrow
-                        </button>
+                    <div class="stock-item" onclick="fillSymbol('GOOGL')">
+                        <div>
+                            <div class="stock-symbol">GOOGL</div>
+                            <div class="stock-name">Alphabet Inc.</div>
+                        </div>
+                        <div class="stock-price up">▲ 0.5%</div>
+                    </div>
+                    <div class="stock-item" onclick="fillSymbol('MSFT')">
+                        <div>
+                            <div class="stock-symbol">MSFT</div>
+                            <div class="stock-name">Microsoft Corp.</div>
+                        </div>
+                        <div class="stock-price up">▲ 2.1%</div>
+                    </div>
+                    <div class="stock-item" onclick="fillSymbol('NVDA')">
+                        <div>
+                            <div class="stock-symbol">NVDA</div>
+                            <div class="stock-name">NVIDIA Corp.</div>
+                        </div>
+                        <div class="stock-price up">▲ 3.4%</div>
+                    </div>
+                    <div class="stock-item" onclick="fillSymbol('TCS.NS')">
+                        <div>
+                            <div class="stock-symbol">TCS.NS</div>
+                            <div class="stock-name">Tata Consultancy</div>
+                        </div>
+                        <div class="stock-price up">▲ 0.9%</div>
+                    </div>
+                    <div class="stock-item" onclick="fillSymbol('RELIANCE.NS')">
+                        <div>
+                            <div class="stock-symbol">RELIANCE.NS</div>
+                            <div class="stock-name">Reliance Industries</div>
+                        </div>
+                        <div class="stock-price down">▼ 0.4%</div>
                     </div>
                 </div>
-            </form>
-        </div>
-
-        <!-- Loader -->
-        <div class="loader-wrap" id="loader" style="display:none;">
-            <div class="spinner"></div>
-            <p>Analyzing market data...</p>
-        </div>
-
-        <!-- Error -->
-        {% if error %}
-        <div class="alert-error">⚠️ {{ error }}</div>
-        {% endif %}
-
-        <!-- Results -->
-        {% if predicted_price %}
-        <div class="results-section">
-
-            <h2 class="section-title">
-                📊 Prediction Results —
-                <span class="accent">{{ symbol }}</span>
-            </h2>
-
-            <!-- Direction Banner -->
-            <div class="direction-banner {{ 'up' if direction == 'UP' else 'down' }}">
-                <span class="direction-icon">{{ '📈' if direction == 'UP' else '📉' }}</span>
-                <span class="direction-text">{{ direction }} Tomorrow</span>
-                <span class="direction-change">
-                    {{ '+' if change > 0 else '' }}${{ change }}
-                    ({{ '+' if change_pct > 0 else '' }}{{ change_pct }}%)
-                </span>
-                <span class="direction-sub">Expected move from today → tomorrow</span>
             </div>
 
-            <!-- Result Cards -->
-            <div class="result-cards">
-
-                <div class="result-card actual-card">
-                    <div class="result-icon">📅</div>
-                    <p class="result-label">Today's Closing Price</p>
-                    <p class="result-date">{{ input_date }}</p>
-                    <p class="result-value">${{ actual_price }}</p>
-                    <p class="result-sub">Real market closing price</p>
+            <!-- How It Works -->
+            <div class="sidebar-card">
+                <p class="sidebar-title">💡 How It Works</p>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <div class="step-text">Enter stock symbol and today's date</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <div class="step-text">AI fetches last 60 days of market data</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <div class="step-text">LSTM model analyzes price patterns</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">4</div>
+                        <div class="step-text">Tomorrow's predicted price is shown</div>
+                    </div>
                 </div>
-
-                <div class="result-card predicted-card">
-                    <div class="result-icon">🔮</div>
-                    <p class="result-label">Tomorrow's Predicted Price</p>
-                    <p class="result-date">{{ tomorrow_date }}</p>
-                    <p class="result-value accent">${{ predicted_price }}</p>
-                    <p class="result-sub">AI prediction based on 60 days</p>
-                </div>
-
             </div>
 
-            <!-- 60 Day Graph -->
-            {% if graph_path %}
-            <div class="graph-card">
-                <h3 class="graph-title">
-                    📊 {{ symbol }} — Last 60 Days Price Chart
-                </h3>
-                <img src="{{ url_for('static', filename=graph_path) }}?t={{ range(1, 99999) | random }}"
-                     alt="60 Day Chart" class="graph-img">
+            <!-- Model Stats -->
+            <div class="sidebar-card">
+                <p class="sidebar-title">🧠 Model Stats</p>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-val">20</div>
+                        <div class="stat-lbl">Stocks Trained</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val">10Y</div>
+                        <div class="stat-lbl">Training Data</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val">60</div>
+                        <div class="stat-lbl">Day Sequence</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-val">4</div>
+                        <div class="stat-lbl">LSTM Layers</div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Hero -->
+            <div class="hero">
+                <h1>AI-Powered Stock<br>Price Prediction</h1>
+                <p class="hero-sub">Enter a stock symbol and today's date — our LSTM model predicts <strong>tomorrow's closing price</strong> using 60 days of historical data</p>
+            </div>
+
+            <!-- Input Card -->
+            <div class="glass-card">
+                <div class="card-title">🔍 Enter Prediction Details</div>
+                <form method="POST" onsubmit="showLoader()">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Stock Symbol</label>
+                            <input type="text" name="symbol" id="symbolInput"
+                                   placeholder="e.g. AAPL, TSLA, TCS.NS" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Today's Date</label>
+                            <input type="date" name="date"
+                                   max="{{ today }}" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="predict-btn">
+                                🔮 Predict Tomorrow
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Loader -->
+            <div class="loader-wrap" id="loader" style="display:none;">
+                <div class="spinner"></div>
+                <p class="loader-text">Analyzing market patterns...</p>
+            </div>
+
+            <!-- Error -->
+            {% if error %}
+            <div class="alert-error">⚠️ {{ error }}</div>
+            {% endif %}
+
+            <!-- Results -->
+            {% if predicted_price %}
+            <div class="results-section">
+
+                <div class="section-title">
+                    📊 Results for
+                    <span class="accent">{{ symbol }}</span>
+                </div>
+
+                <!-- Direction Banner -->
+                <div class="direction-banner {{ 'up' if direction == 'UP' else 'down' }}">
+                    <span class="direction-icon">{{ '📈' if direction == 'UP' else '📉' }}</span>
+                    <span class="direction-text">{{ direction }} Tomorrow</span>
+                    <span class="direction-change">
+                        {{ '+' if change > 0 else '' }}${{ change }}
+                        ({{ '+' if change_pct > 0 else '' }}{{ change_pct }}%)
+                    </span>
+                    <span class="direction-sub">Expected move today → tomorrow</span>
+                </div>
+
+                <!-- Result Cards -->
+                <div class="result-cards">
+                    <div class="result-card actual-card">
+                        <div class="result-icon">📅</div>
+                        <p class="result-label">Today's Closing Price</p>
+                        <p class="result-date">{{ input_date }}</p>
+                        <p class="result-value">${{ actual_price }}</p>
+                        <p class="result-sub">Real market closing price</p>
+                    </div>
+                    <div class="result-card predicted-card">
+                        <div class="result-icon">🔮</div>
+                        <p class="result-label">Tomorrow's Predicted Price</p>
+                        <p class="result-date">{{ tomorrow_date }}</p>
+                        <p class="result-value">${{ predicted_price }}</p>
+                        <p class="result-sub">AI prediction based on 60 days</p>
+                    </div>
+                </div>
+
+                <!-- 60 Day Graph -->
+                {% if graph_path %}
+                <div class="graph-card">
+                    <div class="graph-title">
+                        📊 {{ symbol }} — Last 60 Days Price Chart
+                    </div>
+                    <img src="{{ url_for('static', filename=graph_path) }}?t={{ range(1,99999)|random }}"
+                         alt="60 Day Chart" class="graph-img">
+                </div>
+                {% endif %}
+
+                <!-- Info Bar -->
+                <div class="info-bar">
+                    <div class="info-item">
+                        <span class="info-label">Model</span>
+                        <span class="info-value">LSTM Neural Network</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Training Data</span>
+                        <span class="info-value">2015 — 2025</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">MSE</span>
+                        <span class="info-value">0.000169</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">MAE</span>
+                        <span class="info-value">0.008222</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Stocks Trained</span>
+                        <span class="info-value">20 Companies</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Sequence Length</span>
+                        <span class="info-value">60 Days</span>
+                    </div>
+                </div>
+
             </div>
             {% endif %}
 
-            <!-- Info Bar -->
-            <div class="info-bar">
-                <div class="info-item">
-                    <span class="info-label">Model</span>
-                    <span class="info-value">LSTM Neural Network</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Training Data</span>
-                    <span class="info-value">2010 — 2025</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">MSE</span>
-                    <span class="info-value">35.30</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">MAE</span>
-                    <span class="info-value">$4.69</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Sequence Length</span>
-                    <span class="info-value">60 Days</span>
-                </div>
-            </div>
-
-        </div>
-        {% endif %}
-
-    </main>
+        </main>
+    </div>
 
     <footer class="footer">
         <p>⚠️ StockAI is for educational purposes only. Not financial advice.</p>
@@ -365,6 +676,12 @@
     <script>
         function showLoader() {
             document.getElementById('loader').style.display = 'flex';
+        }
+
+        // Click sidebar stock to auto fill symbol input
+        function fillSymbol(symbol) {
+            document.getElementById('symbolInput').value = symbol;
+            document.getElementById('symbolInput').focus();
         }
     </script>
 
