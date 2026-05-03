@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+import gradio as gr
 import numpy as np
 import yfinance as yf
 import matplotlib
@@ -6,133 +6,161 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
-from datetime import datetime, timedelta, date
-import os
+from datetime import datetime, timedelta
 
-app = Flask(__name__)
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+# Load model
 model = load_model('stock_lstm_model.keras')
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    error           = None
-    predicted_price = None
-    actual_price    = None
-    symbol          = None
-    input_date      = None
-    tomorrow_date   = None
-    direction       = None
-    change          = None
-    change_pct      = None
-    graph_path      = None
+def predict_stock(symbol, date_str):
+    try:
+        symbol      = symbol.upper().strip()
+        target_date = datetime.strptime(date_str, '%Y-%m-%d')
+        tomorrow    = (target_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        start_date  = target_date - timedelta(days=100)
 
-    if request.method == 'POST':
-        symbol     = request.form['symbol'].upper().strip()
-        input_date = request.form['date'].strip()
+        # Fetch data
+        stock = yf.download(
+            symbol,
+            start=start_date.strftime('%Y-%m-%d'),
+            end=(target_date + timedelta(days=1)).strftime('%Y-%m-%d'),
+            progress=False
+        )
 
-        try:
-            # ── 1. Parse date ────────────────────────────
-            target_date   = datetime.strptime(input_date, '%Y-%m-%d')
-            tomorrow_date = (target_date + timedelta(days=1)).strftime('%Y-%m-%d')
-            start_date    = target_date - timedelta(days=100)
+        if stock.empty:
+            return f"❌ Symbol '{symbol}' not found. Please check!", None
 
-            # ── 2. Fetch data ────────────────────────────
-            stock = yf.download(symbol,
-                                start=start_date.strftime('%Y-%m-%d'),
-                                end=(target_date + timedelta(days=1)).strftime('%Y-%m-%d'))
+        if len(stock) < 60:
+            return "❌ Not enough data. Try an earlier date!", None
 
-            if stock.empty:
-                error = f"No data found for '{symbol}'. Please check the symbol."
-            elif len(stock) < 60:
-                error = f"Not enough data before {input_date}. Try an earlier date."
-            else:
-                close_prices = stock[['Close']].values
+        close_prices = stock[['Close']].values
+        scaler       = MinMaxScaler(feature_range=(0, 1))
+        scaled_data  = scaler.fit_transform(close_prices)
 
-                # ── 3. Scale ─────────────────────────────
-                scaler      = MinMaxScaler(feature_range=(0, 1))
-                scaled_data = scaler.fit_transform(close_prices)
+        # Predict
+        last_60          = scaled_data[-60:].reshape(1, 60, 1)
+        predicted_scaled = model.predict(last_60)
+        predicted_price  = round(float(scaler.inverse_transform(predicted_scaled)[0][0]), 2)
+        actual_price     = round(float(close_prices[-1][0]), 2)
+        change           = round(predicted_price - actual_price, 2)
+        change_pct       = round((change / actual_price) * 100, 2)
+        direction        = "📈 UP" if predicted_price > actual_price else "📉 DOWN"
 
-                # ── 4. Predict ───────────────────────────
-                last_60          = scaled_data[-60:].reshape(1, 60, 1)
-                predicted_scaled = model.predict(last_60)
-                predicted_price  = round(float(scaler.inverse_transform(predicted_scaled)[0][0]), 2)
-                actual_price     = round(float(close_prices[-1][0]), 2)
-                change           = round(predicted_price - actual_price, 2)
-                change_pct       = round((change / actual_price) * 100, 2)
-                direction        = "UP" if predicted_price > actual_price else "DOWN"
+        # Generate graph
+        last_60_prices = close_prices[-60:]
+        dates_60       = stock.index[-60:]
 
-                # ── 5. Generate 60-day graph ─────────────
-                last_60_prices = close_prices[-60:]
-                dates_60       = stock.index[-60:]
+        fig, ax = plt.subplots(figsize=(12, 5))
+        fig.patch.set_facecolor('#0d1120')
+        ax.set_facecolor('#0d1120')
+        ax.plot(dates_60, last_60_prices,
+                color='#00d4ff', linewidth=2, label='Close Price')
+        ax.fill_between(dates_60, last_60_prices.flatten(),
+                        alpha=0.15, color='#00d4ff')
+        ax.scatter(dates_60[-1], actual_price,
+                   color='#00ff88', s=100, zorder=5,
+                   label=f'Today: ${actual_price}')
+        ax.scatter(dates_60[-1], predicted_price,
+                   color='#ff9900', s=100, zorder=5,
+                   marker='*', label=f'Predicted: ${predicted_price}')
+        ax.set_title(f'{symbol} — Last 60 Days Price',
+                     color='#a0b4cc', fontsize=14, pad=15)
+        ax.set_xlabel('Date', color='#556a80')
+        ax.set_ylabel('Price (USD $)', color='#556a80')
+        ax.tick_params(colors='#556a80')
+        for spine in ax.spines.values():
+            spine.set_color('#1e2a3a')
+        ax.grid(True, color='#1e2a3a', linewidth=0.8)
+        ax.legend(facecolor='#0d1120', labelcolor='#a0b4cc', fontsize=9)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
 
-                graph_folder = os.path.join(app.root_path, 'static', 'graphs')
-                os.makedirs(graph_folder, exist_ok=True)
-                graph_file = os.path.join(graph_folder, f'{symbol}_60days.png')
+        result = f"""
+## 📊 Prediction Results for {symbol}
 
-                fig, ax = plt.subplots(figsize=(12, 5))
-                fig.patch.set_facecolor('#0d1120')
-                ax.set_facecolor('#0d1120')
+| Detail | Value |
+|--------|-------|
+| 📅 Today's Date | {date_str} |
+| 🔮 Prediction Date | {tomorrow} |
+| 💵 Today's Actual Price | **${actual_price}** |
+| 🎯 Predicted Tomorrow's Price | **${predicted_price}** |
+| 📊 Expected Change | **${change} ({change_pct}%)** |
+| 📈 Direction | **{direction}** |
 
-                # Plot line
-                ax.plot(dates_60, last_60_prices,
-                        color='#00d4ff', linewidth=2, label='Close Price')
+---
+⚠️ *For educational purposes only. Not financial advice.*
+        """
 
-                # Fill under line
-                ax.fill_between(dates_60,
-                                last_60_prices.flatten(),
-                                alpha=0.15, color='#00d4ff')
+        return result, fig
 
-                # Mark today's price
-                ax.scatter(dates_60[-1], actual_price,
-                           color='#00ff88', s=80, zorder=5,
-                           label=f'Today: ${actual_price}')
+    except Exception as e:
+        return f"❌ Error: {str(e)}", None
 
-                # Mark predicted price as a dot on tomorrow
-                ax.scatter(dates_60[-1], predicted_price,
-                           color='#ff9900', s=80, zorder=5,
-                           marker='*', label=f'Predicted: ${predicted_price}')
+# ── Gradio UI ────────────────────────────────────────────
+with gr.Blocks(
+    theme=gr.themes.Soft(),
+    title="StockAI — Price Predictor",
+    css="""
+        .gradio-container { max-width: 1200px !important; }
+        h1 { text-align: center; }
+    """
+) as demo:
 
-                # Styling
-                ax.set_title(f'{symbol} — Last 60 Days Closing Price',
-                             color='#a0b4cc', fontsize=14, pad=15)
-                ax.set_xlabel('Date', color='#556a80', fontsize=10)
-                ax.set_ylabel('Price (USD $)', color='#556a80', fontsize=10)
-                ax.tick_params(colors='#556a80')
-                ax.spines['bottom'].set_color('#1e2a3a')
-                ax.spines['top'].set_color('#1e2a3a')
-                ax.spines['left'].set_color('#1e2a3a')
-                ax.spines['right'].set_color('#1e2a3a')
-                ax.grid(True, color='#1e2a3a', linewidth=0.8)
-                ax.legend(facecolor='#0d1120', labelcolor='#a0b4cc',
-                          fontsize=9, loc='upper left')
+    gr.Markdown("""
+    # 📈 StockAI — AI Stock Price Predictor
+    ### Powered by LSTM Neural Network trained on 20 companies
+    Enter a stock symbol and today's date to predict **tomorrow's closing price!**
+    """)
 
-                plt.xticks(rotation=45)
-                plt.tight_layout()
-                plt.savefig(graph_file, dpi=120,
-                            facecolor='#0d1120', bbox_inches='tight')
-                plt.close()
+    with gr.Row():
 
-                graph_path = f'graphs/{symbol}_60days.png'
+        # Left Column — Inputs
+        with gr.Column(scale=1):
+            symbol_input = gr.Textbox(
+                label="📌 Stock Symbol",
+                placeholder="e.g. AAPL, TSLA, TCS.NS",
+                value="AAPL"
+            )
+            date_input = gr.Textbox(
+                label="📅 Today's Date (YYYY-MM-DD)",
+                placeholder="e.g. 2024-06-15",
+                value=datetime.today().strftime('%Y-%m-%d')
+            )
+            predict_btn = gr.Button(
+                "🔮 Predict Tomorrow's Price",
+                variant="primary",
+                size="lg"
+            )
 
-        except ValueError:
-            error = "Invalid date format. Please use YYYY-MM-DD"
-        except Exception as e:
-            error = f"Something went wrong: {str(e)}"
+            gr.Markdown("""
+            ---
+            ### 🔥 Popular Stocks
+            **🇺🇸 US Stocks:**
+            `AAPL` `TSLA` `GOOGL` `MSFT` `NVDA` `META` `AMZN`
 
-    today = date.today().strftime('%Y-%m-%d')
+            **🇮🇳 Indian Stocks:**
+            `TCS.NS` `RELIANCE.NS` `INFY.NS` `HDFCBANK.NS` `WIPRO.NS`
 
-    return render_template('index.html',
-                           symbol=symbol,
-                           input_date=input_date,
-                           tomorrow_date=tomorrow_date,
-                           predicted_price=predicted_price,
-                           actual_price=actual_price,
-                           direction=direction,
-                           change=change,
-                           change_pct=change_pct,
-                           graph_path=graph_path,
-                           error=error,
-                           today=today)
+            ---
+            ### 🧠 Model Info
+            - Trained on **20 companies**
+            - **10 years** of data (2015-2025)
+            - **4 LSTM layers**
+            - **60 day** sequence length
+            - MSE: **0.000169**
+            """)
 
-if __name__ == '__main__':
-    app.run(debug=False)
+        # Right Column — Results
+        with gr.Column(scale=2):
+            result_output = gr.Markdown(
+                value="#### Results will appear here after prediction! 👆"
+            )
+            graph_output = gr.Plot(label="📊 60 Day Price Chart")
+
+    # Button click
+    predict_btn.click(
+        fn=predict_stock,
+        inputs=[symbol_input, date_input],
+        outputs=[result_output, graph_output]
+    )
+
+demo.launch()
